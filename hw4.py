@@ -1,6 +1,37 @@
 import math
 
 import numpy as np
+import matplotlib.pyplot as plt
+from matplotlib.colors import ListedColormap
+
+# Function for ploting the decision boundaries of a model
+def plot_decision_regions(X, y, classifier, resolution=0.01, title=""):
+
+    # setup marker generator and color map
+    markers = ('.', '.')
+    colors = ('blue', 'red')
+    cmap = ListedColormap(colors[:len(np.unique(y))])
+    # plot the decision surface
+    x1_min, x1_max = X[:, 0].min() - 1, X[:, 0].max() + 1
+    x2_min, x2_max = X[:, 1].min() - 1, X[:, 1].max() + 1
+    xx1, xx2 = np.meshgrid(np.arange(x1_min, x1_max, resolution),
+                           np.arange(x2_min, x2_max, resolution))
+    Z = classifier.predict(np.array([xx1.ravel(), xx2.ravel()]).T)
+    Z = Z.reshape(xx1.shape)
+    plt.contourf(xx1, xx2, Z, alpha=0.3, cmap=cmap)
+    plt.xlim(xx1.min(), xx1.max())
+    plt.ylim(xx2.min(), xx2.max())
+
+    for idx, cl in enumerate(np.unique(y)):
+        plt.title(title)
+        plt.scatter(x=X[y == cl, 0],
+                    y=X[y == cl, 1],
+                    alpha=0.8,
+                    c=colors[idx],
+                    marker=markers[idx],
+                    label=cl,
+                    edgecolor='black')
+    plt.show()
 
 class LogisticRegressionGD(object):
     """
@@ -194,44 +225,52 @@ class EM(object):
         self.weights = None
         self.mus = None
         self.sigmas = None
-        self.costs = None
+        self.costs = list()
 
     # initial guesses for parameters
     def init_params(self, data):
         """
         Initialize distribution params
         """
-        ###########################################################################
-        # TODO: Implement the function.                                           #
-        ###########################################################################
-        pass
-        ###########################################################################
-        #                             END OF YOUR CODE                            #
-        ###########################################################################
+        # self.weights = np.full(self.k, (1 / self.k))
+        # self.mus = np.random.random(self.k)
+        # self.sigmas = np.random.random(self.k)
+        np.random.seed(self.random_state)
+        num_samples, num_features = data.shape
+
+        # pick k random indexes to be the initial mus
+        index = np.random.choice(num_samples, self.k, replace=False)
+        self.mus = data[index][:, 0]
+        # initialize all the weights to be 1 / k
+        self.weights = np.full(self.k, 1 / self.k)
+        # initialize all the sigmas to be the std of the data
+        # #self.sigmas = np.full((self.k, num_features), data.std(axis=0))
+        self.sigmas = np.ones((self.k,)) * np.std(data)
+
+    def calculate_pdf_array(self, data):
+        pdf_array = []
+        for i in range(self.k):
+            pdf_array.append(norm_pdf(data, self.mus[i], self.sigmas[i]))
+        return pdf_array
 
     def expectation(self, data):
         """
         E step - This function should calculate and update the responsibilities
         """
-        ###########################################################################
-        # TODO: Implement the function.                                           #
-        ###########################################################################
-        pass
-        ###########################################################################
-        #                             END OF YOUR CODE                            #
-        ###########################################################################
+        norm_values = norm_pdf(data, self.mus, self.sigmas) * self.weights
+        denominator = norm_values.sum(axis=1)
+        self.responsibilities = norm_values / denominator[:, np.newaxis]
 
     def maximization(self, data):
         """
         M step - This function should calculate and update the distribution params
         """
-        ###########################################################################
-        # TODO: Implement the function.                                           #
-        ###########################################################################
-        pass
-        ###########################################################################
-        #                             END OF YOUR CODE                            #
-        ###########################################################################
+        self.weights = self.responsibilities.sum(axis=0) / data.shape[0]
+        self.mus = (self.responsibilities * data).sum(axis=0) / (data.shape[0] * self.weights)
+        self.sigmas = np.sqrt((self.responsibilities * np.square(data - self.mus)).sum(axis=0) / (data.shape[0] * self.weights))
+
+    def cost(self, data):
+        return -(np.log2(norm_pdf(data, self.mus, self.sigmas) * self.weights).sum(axis=1)).sum()
 
     def fit(self, data):
         """
@@ -242,16 +281,141 @@ class EM(object):
         Stop the function when the difference between the previous cost and the current is less than eps
         or when you reach n_iter.
         """
-        ###########################################################################
-        # TODO: Implement the function.                                           #
-        ###########################################################################
-        pass
-        ###########################################################################
-        #                             END OF YOUR CODE                            #
-        ###########################################################################
+        self.init_params(data)
+        for _ in range(self.n_iter):
+            self.expectation(data)
+            self.maximization(data)
+            self.costs.append(self.cost(data))
+            if len(self.costs) > 1:
+                if abs(self.costs[-1] - self.costs[-2]) < self.eps:
+                    break
 
     def get_dist_params(self):
         return self.weights, self.mus, self.sigmas
+
+# class EM(object):
+#     """
+#     Naive Bayes Classifier using Gaussian Mixture Model (EM) for calculating the likelihood.
+#
+#     Parameters
+#     ------------
+#     k : int
+#       Number of gaussians in each dimension
+#     n_iter : int
+#       Passes over the training dataset in the EM proccess
+#     eps: float
+#       minimal change in the cost to declare convergence
+#     random_state : int
+#       Random number generator seed for random params initialization.
+#     """
+#
+#     def __init__(self, k=1, n_iter=1000, eps=0.01, random_state=1991):
+#         self.k = k
+#         self.n_iter = n_iter
+#         self.eps = eps
+#         self.random_state = random_state
+#
+#         np.random.seed(self.random_state)
+#
+#         self.responsibilities = []
+#         self.weights = []
+#         self.mus = []
+#         self.sigmas = []
+#         self.costs = []
+#
+#     # initial guesses for parameters
+#     def init_params(self, data):
+#         """
+#         Initialize distribution params
+#         """
+#         np.random.seed(self.random_state)
+#         num_samples, num_features = data.shape
+#
+#         # pick k random indexes to be the initial mus
+#         index = np.random.choice(num_samples, self.k, replace=False)
+#         self.mus = data[index]
+#         # initialize all the weights to be 1 / k
+#         self.weights = np.full(self.k, 1 / self.k)
+#         # initialize all the sigmas to be the std of the data
+#         # #self.sigmas = np.full((self.k, num_features), data.std(axis=0))
+#         self.sigmas = np.ones((self.k,)) * np.std(data)
+#
+#     def calculate_pdf_array(self, data):
+#         pdf_array = []
+#         for i in range(self.k):
+#             pdf_array.append(norm_pdf(data, self.mus[i], self.sigmas[i]))
+#         return pdf_array
+#
+#     def expectation(self, data):
+#         """
+#         E step - This function should calculate and update the responsibilities
+#         """
+#         self.responsibilities = np.zeros((self.k, int(data.shape[0])))
+#         for i in range(self.k):
+#             for j, row in enumerate(data):
+#                 total_pdf = np.array(self.calculate_pdf_array(row))
+#                 self.responsibilities[i, j] = (self.weights[i] * norm_pdf(row, self.mus[i], self.sigmas[i]).flatten()) / \
+#                                               sum(np.array(self.weights).dot(total_pdf))
+#
+#     def maximization(self, data):
+#         """
+#         M step - This function should calculate and update the distribution params
+#         """
+#         num_samples = data.shape[0]
+#         # update mus
+#         for i in range(self.k):
+#             # update weights
+#             self.weights[i] = sum(self.responsibilities[i]) / num_samples
+#             # update mus
+#             self.mus[i] = sum(self.responsibilities[i].dot(data)) / (self.weights[i] * num_samples)
+#             # update sigmas
+#             self.sigmas[i] = np.sqrt(
+#                 sum(np.array(self.responsibilities[i]).dot((data - self.mus[i]) ** 2)) /
+#                 (self.weights[i] * num_samples))
+#
+#     def log_likelihood(self, data):
+#         """
+#         Calculates the loglikelihood of the data given the current parameters.
+#
+#         Parameters
+#         ----------
+#         data: the data we want to calculate log likelihood for.
+#
+#         Returns
+#         -------
+#         loglikelihood of the data given the current parameters.
+#         """
+#         sum_all = 0
+#         for i in range(data.shape[0]):
+#             for j in range(self.k):
+#                 internal_sum = 0
+#                 internal_sum += self.weights[j] * norm_pdf(data[i], self.mus[j], self.sigmas[j])
+#             sum_all += np.log(internal_sum)
+#         return sum_all
+#
+#     def fit(self, data):
+#         """
+#         Fit training data (the learning phase).
+#         Use init_params and then expectation and maximization function in order to find params
+#         for the distribution.
+#         Store the params in attributes of the EM object.
+#         Stop the function when the difference between the previous cost and the current is less than eps
+#         or when you reach n_iter.
+#         """
+#         self.init_params(data)
+#         last_cost = 0
+#         import sys
+#         new_cost = sys.maxsize
+#         for i in range(self.n_iter):
+#             self.expectation(data)
+#             self.maximization(data)
+#             last_cost = new_cost
+#             new_cost = self.log_likelihood(data)
+#             if abs(new_cost - last_cost) < self.eps:
+#                 break
+#
+#     def get_dist_params(self):
+#         return self.weights, self.mus, self.sigmas
 
 def gmm_pdf(data, weights, mus, sigmas):
     """
@@ -268,14 +432,10 @@ def gmm_pdf(data, weights, mus, sigmas):
     for the given data.    
     """
     pdf = None
-    ###########################################################################
-    # TODO: Implement the function.                                           #
-    ###########################################################################
-    pass
-    ###########################################################################
-    #                             END OF YOUR CODE                            #
-    ###########################################################################
+    pdf = np.array([norm_pdf(data, mus[i], sigmas[i]) for i in range(mus.shape[0])]).T * weights
+    # pdf = (np.apply_along_axis(lambda i: norm_pdf(data, mus[i], sigmas[i]), 0, range(mus.shape[0])) * weights).sum(axis=0)
     return pdf
+
 
 class NaiveBayesGaussian(object):
     """
@@ -293,6 +453,14 @@ class NaiveBayesGaussian(object):
         self.k = k
         self.random_state = random_state
         self.prior = None
+        self.classes = list()
+        self.probability_parameters = dict()
+
+    def init_prior(self, y):
+        self.classes, self.prior = np.unique(y, return_counts=True)
+        self.classes = self.classes.tolist()
+        self.prior = self.prior / y.shape[0]
+        self.probability_parameters = {k: list() for k in self.classes}
 
     def fit(self, X, y):
         """
@@ -306,13 +474,34 @@ class NaiveBayesGaussian(object):
         y : array-like, shape = [n_examples]
           Target values.
         """
-        ###########################################################################
-        # TODO: Implement the function.                                           #
-        ###########################################################################
-        pass
-        ###########################################################################
-        #                             END OF YOUR CODE                            #
-        ###########################################################################
+        self.init_prior(y)
+        for label in self.classes:
+            for feature in range(X.shape[1]):
+                em_object = EM(k=self.k, random_state=self.random_state)
+                em_object.fit(X[y == label, feature][:, np.newaxis])
+                self.probability_parameters[label].append(em_object.get_dist_params())
+
+    def compute_feature_likelihood(self, X, probability_params):
+        # likelihood = np.array([gmm_pdf(X, probability_params[0][prob_params_index], probability_params[1][prob_params_index], probability_params[2][prob_params_index]) for prob_params_index in range(self.k)])
+        likelihood = gmm_pdf(X, *probability_params)
+        likelihood = likelihood.sum(axis=1)
+        return likelihood
+
+    def get_likelihoods(self, X, label):
+        feature_likelihood = np.array([self.compute_feature_likelihood(X[:, i], self.probability_parameters[label][i]) for i in range(X.shape[1])]).T
+        likelihood = feature_likelihood.prod(axis=1)
+        # likelihood = np.apply_along_axis(lambda i: np.apply_along_axis(lambda j: gmm_pdf(X, **self.probability_parameters[label][i]), 0, np.array(range(self.k))), 0, np.array(range(X.shape[1])))
+        # likelihood = likelihood.sum(axis=0)
+        # likelihood = likelihood.prod()
+        return likelihood
+        # for feature in range(X.shape[1]):
+        #     feature_liklihood = 0
+        #     for i in range(self.k):
+        #         feature_liklihood += gmm_pdf(X, **self.probability_parameters[label][feature])
+
+    def get_posterior(self, X, label):
+        label_index = self.classes.index(label)
+        return self.get_likelihoods(X, label) * self.prior[label_index]
 
     def predict(self, X):
         """
@@ -322,14 +511,15 @@ class NaiveBayesGaussian(object):
         X : {array-like}, shape = [n_examples, n_features]
         """
         preds = None
-        ###########################################################################
-        # TODO: Implement the function.                                           #
-        ###########################################################################
-        pass
-        ###########################################################################
-        #                             END OF YOUR CODE                            #
-        ###########################################################################
+        posteriors = np.array([self.get_posterior(X, label) for label in self.classes])
+        # posteriors = np.apply_along_axis(lambda label: self.get_posterior(X, label), 0,  np.array(self.classes)[:, np.newaxis])
+        preds = np.apply_along_axis(lambda x: self.classes[np.argmax(x)], 1, posteriors.T)
         return preds
+
+
+def calculate_accuracy(X, y, model):
+    return y[model.predict(X) == y].shape[0] / X.shape[0]
+
 
 def model_evaluation(x_train, y_train, x_test, y_test, k, best_eta, best_eps):
     ''' 
@@ -361,13 +551,33 @@ def model_evaluation(x_train, y_train, x_test, y_test, k, best_eta, best_eps):
     bayes_train_acc = None
     bayes_test_acc = None
 
-    ###########################################################################
-    # TODO: Implement the function.                                           #
-    ###########################################################################
-    pass
-    ###########################################################################
-    #                             END OF YOUR CODE                            #
-    ###########################################################################
+    lor_hypothesis = LogisticRegressionGD(eta=best_eta, eps=best_eps)
+    lor_hypothesis.fit(x_train, y_train)
+    lor_train_acc = calculate_accuracy(x_train, y_train, lor_hypothesis)
+    lor_test_acc = calculate_accuracy(x_test, y_test, lor_hypothesis)
+
+    naiveBayesGaussian_hypothesis = NaiveBayesGaussian(k)
+    naiveBayesGaussian_hypothesis.fit(x_train, y_train)
+    bayes_train_acc = calculate_accuracy(x_train, y_train, naiveBayesGaussian_hypothesis)
+    bayes_test_acc = calculate_accuracy(x_test, y_test, naiveBayesGaussian_hypothesis)
+
+    print(f'lor train acc: {lor_train_acc}')
+    print(f'lor test acc: {lor_test_acc}')
+    print(f'bayes train acc: {bayes_train_acc}')
+    print(f'bayes test acc: {bayes_test_acc}')
+
+    plt.title('lor decision regions')
+    plot_decision_regions(x_train, y_train, lor_hypothesis)
+    plt.title('bayes decision regions')
+    plot_decision_regions(x_train, y_train, naiveBayesGaussian_hypothesis)
+
+    plt.title('lor cost vs iteration')
+    plt.plot(np.arange(len(lor_hypothesis.Js)), lor_hypothesis.Js)
+    plt.xlabel('Iterations')
+    plt.ylabel('Loss')
+    plt.title('Loss as a function of iterations')
+    plt.show()
+
     return {'lor_train_acc': lor_train_acc,
             'lor_test_acc': lor_test_acc,
             'bayes_train_acc': bayes_train_acc,
