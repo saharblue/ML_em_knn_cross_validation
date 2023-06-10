@@ -594,13 +594,41 @@ def generate_datasets():
     dataset_a_labels = None
     dataset_b_features = None
     dataset_b_labels = None
-    ###########################################################################
-    # TODO: Implement the function.                                           #
-    ###########################################################################
-    pass
-    ###########################################################################
-    #                             END OF YOUR CODE                            #
-    ###########################################################################
+
+    dataset_a_features = np.vstack((multivariate_normal.rvs([0, 0, 0], [[1, 0, 0], [0, 1, 0], [0, 0, 1]], 250),
+                                    multivariate_normal.rvs([5, 5, 5], [[1, 0, 0], [0, 1, 0], [0, 0, 1]], 250),
+                                    multivariate_normal.rvs([0, 0, 5], [[1, 0, 0], [0, 1, 0], [0, 0, 1]], 250),
+                                    multivariate_normal.rvs([5, 5, 0], [[1, 0, 0], [0, 1, 0], [0, 0, 1]], 250)))
+    dataset_a_labels = np.hstack((np.ones(500), np.zeros(500)))
+
+    dataset_b_features = np.vstack((multivariate_normal.rvs([0, 0, 0], [[1, 0.3, 0.8], [0.3, 1, 0.8], [0.3, 0.3, 1]], 500),
+                                    multivariate_normal.rvs([5, 5, 5], [[1, 0.3, 0.8], [0.3, 1, 0.8], [0.3, 0.3, 1]], 500),))
+    dataset_b_labels = np.hstack((np.ones(500), np.zeros(500)))
+
+    figure = plt.figure()
+    figure.suptitle('a dataset that work better with naive bayes', fontsize=16)
+    ax = plt.axes(projection="3d")
+    ax.set_title(
+        'the reason this dataset is better with naiveBayes is because linear regression is a linear seperator algorithm\nand our data set here is not linearly seperable.',
+        fontsize=14)
+    ax.scatter3D(dataset_a_features[:, 0], dataset_a_features[:, 1], dataset_a_features[:, 2],
+                 c=np.vectorize({0: 'blue', 1: 'red'}.get)(dataset_a_labels))
+    ax.set_xlabel('x feature', fontsize=14, color='purple')
+    ax.set_ylabel('y feature', fontsize=14, color='red')
+    ax.set_zlabel('z feature', fontsize=14, color='green')
+
+    figure2 = plt.figure()
+    figure2.suptitle('a dataset that work better with logistic regression', fontsize=16)
+    ax2 = plt.axes(projection="3d")
+    ax2.set_title(
+        'the reason this dataset works better with logistic regression is first of all the fact that the data is linearly seperable.\nthe second reason is the fact naive bayes assumes that the rvs are independent, and clearly we can see that its not true.',
+        fontsize=14)
+    ax2.scatter3D(dataset_b_features[:, 0], dataset_b_features[:, 1], dataset_b_features[:, 2],
+                  c=np.vectorize({0: 'blue', 1: 'red'}.get)(dataset_b_labels))
+    ax2.set_xlabel('x feature', fontsize=14, color='purple')
+    ax2.set_ylabel('y feature', fontsize=14, color='red')
+    ax2.set_zlabel('z feature', fontsize=14, color='green')
+
     return{'dataset_a_features': dataset_a_features,
            'dataset_a_labels': dataset_a_labels,
            'dataset_b_features': dataset_b_features,
